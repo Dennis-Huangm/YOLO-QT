@@ -1,9 +1,6 @@
 *.pt
 *.onnx
-wandb/
-/train.py
-/val.py
-
-/.idea
-/__pycache__
-/datasets
+/wandb/
+/datasets/
+/.idea/
+/__pycache__/
