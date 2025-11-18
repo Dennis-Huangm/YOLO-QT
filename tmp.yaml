@@ -1,0 +1,5 @@
+names:
+  0: car
+nc: 1
+train: E:\lamber\train.txt
+val: E:\lamber\val.txt

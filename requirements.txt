@@ -1,0 +1,22 @@
+# YOLO Object Detection with PyQt5 GUI
+# Core dependencies
+
+# Computer Vision
+opencv-python>=4.5.0
+numpy>=1.19.0
+
+# Deep Learning - YOLO
+ultralytics>=8.0.0
+
+# GUI Framework
+PyQt5>=5.15.0
+
+# Data Processing
+pyyaml>=5.3.0
+pandas>=1.1.0
+
+# XML Processing
+lxml>=4.6.0
+
+# Utilities
+Pillow>=8.0.0

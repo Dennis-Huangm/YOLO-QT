@@ -1,0 +1,26 @@
+<annotation>
+	<folder>image</folder>
+	<filename>bus.jpg</filename>
+	<path>D:\YOLOv8_qt\labelimg\data\image\bus.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>810</width>
+		<height>1080</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>person</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>39</xmin>
+			<ymin>375</ymin>
+			<xmax>253</xmax>
+			<ymax>910</ymax>
+		</bndbox>
+	</object>
+</annotation>
