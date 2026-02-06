@@ -19,6 +19,12 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 IMAGE_SUFFIXES = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
 VIDEO_SUFFIXES = {'.mp4', '.flv', '.avi', '.mov', '.mkv', '.wmv', '.m4v', '.ts', '.mpeg', '.mpg'}
+MEDIA_FILE_FILTER = (
+    '媒体文件('
+    '*.jpg *.jpeg *.png *.bmp *.tif *.tiff *.webp '
+    '*.mp4 *.flv *.avi *.mov *.mkv *.wmv *.m4v *.ts *.mpeg *.mpg'
+    ')'
+)
 
 
 def cvimg_to_qtimg(cvimg):
@@ -64,7 +70,7 @@ def cvimg_to_qtimg(cvimg):
 class DetectionThread(QThread):
     change_pixmap_signal = pyqtSignal(QImage)
     update_text_signal = pyqtSignal(str)
-    finished_signal = pyqtSignal()
+    finished_signal = pyqtSignal(str)
     
     def __init__(self, model, source, save_result=False, save_dir=None, parent=None):
         super(DetectionThread, self).__init__(parent)
@@ -72,6 +78,7 @@ class DetectionThread(QThread):
         self.source = source
         self.save_result = save_result
         self.save_dir = save_dir
+        self.output_path = ''
         self.running = True
         self.paused = False
         self.category = self.model.module.names if hasattr(self.model, 'module') else self.model.names
@@ -105,6 +112,7 @@ class DetectionThread(QThread):
                     os.makedirs(self.save_dir, exist_ok=True)
 
                 save_path = str(Path(str(self.save_dir) + '/' + str(filename)).with_suffix('.mp4'))
+                self.output_path = save_path
                 vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h), True)
 
             t1 = time.time()
@@ -154,7 +162,7 @@ class DetectionThread(QThread):
             if vid_writer:
                 vid_writer.release()
             cap.release()
-            self.finished_signal.emit()
+            self.finished_signal.emit(self.output_path)
     
     def stop(self):
         self.running = False
@@ -399,7 +407,7 @@ class UiMain(QMainWindow, Ui_MainWindow):
         self.work()
 
     def loadimage(self):
-        self.fname, _ = QFileDialog.getOpenFileName(self, '请选择图片或视频', '.', '图像文件(*.jpg *.jpeg *.png *.mp4 *.flv)')
+        self.fname, _ = QFileDialog.getOpenFileName(self, '请选择图片或视频', '.', MEDIA_FILE_FILTER)
         if self.fname:
             self.statusbar.showMessage(f'已成功打开文件：{self.fname}', 10000)
             self.work()
@@ -454,14 +462,14 @@ class UiMain(QMainWindow, Ui_MainWindow):
             self.detect_single_image_async()
             self.ReButton.setVisible(True)
 
-        if self.checkBox.isChecked():
-            self.statusbar.showMessage('结果已保存。', 10000)
-
     def setup_video_ui_state(self):
         self.cameraButton.setVisible(False)
         self.ReButton.setVisible(False)
         self.EndButton.setVisible(False)
         self.OpenButton.setVisible(False)
+        self.stopButton.setEnabled(True)
+        self.PauseButton.setEnabled(True)
+        self.ContinueButton.setEnabled(True)
         self.ContinueButton.setVisible(False)
         self.PauseButton.setVisible(True)
         self.stopButton.setVisible(True)
@@ -496,8 +504,13 @@ class UiMain(QMainWindow, Ui_MainWindow):
         self.textEdit.setText(text)
 
     def stop_detection(self):
-        if self.det_thread:
+        if self.det_thread and self.det_thread.isRunning():
             self.det_thread.stop()
+            self.stopButton.setEnabled(False)
+            self.PauseButton.setEnabled(False)
+            self.ContinueButton.setEnabled(False)
+            self.statusbar.showMessage('正在停止检测，请稍候...', 3000)
+            return
         self.reset_ui_state()
 
     def pause_detection(self):
@@ -512,11 +525,16 @@ class UiMain(QMainWindow, Ui_MainWindow):
         self.PauseButton.setVisible(True)
         self.ContinueButton.setVisible(False)
         
-    def on_detection_finished(self):
+    def on_detection_finished(self, save_path):
+        if save_path:
+            self.statusbar.showMessage(f'检测结果已保存：{save_path}', 5000)
         self.reset_ui_state()
         self._attempt_quit_if_ready()
         
     def reset_ui_state(self):
+        self.stopButton.setEnabled(True)
+        self.PauseButton.setEnabled(True)
+        self.ContinueButton.setEnabled(True)
         self.stopButton.setVisible(False)
         self.PauseButton.setVisible(False)
         self.ContinueButton.setVisible(False)
@@ -582,14 +600,11 @@ class UiMain(QMainWindow, Ui_MainWindow):
                 maybe_classes = os.path.abspath(os.path.join(self.label_directory, '../predefined_classes.txt'))
                 if os.path.exists(maybe_classes):
                     cmd.append(maybe_classes)
-            
-            original_cwd = os.getcwd()
+
             try:
                 subprocess.Popen(cmd, cwd=labelimg_dir)
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"启动 LabelImg 失败：{e}")
-            finally:
-                os.chdir(original_cwd)
                 
         else:
             QMessageBox.question(self, "提示", "请先选择图片目录。", QMessageBox.Ok)
