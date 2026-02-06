@@ -111,8 +111,9 @@ class DetectionThread(QThread):
                 if not os.path.exists(self.save_dir):
                     os.makedirs(self.save_dir, exist_ok=True)
 
-                save_path = str(Path(str(self.save_dir) + '/' + str(filename)).with_suffix('.mp4'))
+                save_path = str((Path(self.save_dir) / filename).with_suffix('.mp4'))
                 self.output_path = save_path
+                self._frame_size = (w, h)  # Store expected frame size
                 vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h), True)
 
             t1 = time.time()
@@ -155,6 +156,9 @@ class DetectionThread(QThread):
 
                 # Save video
                 if vid_writer:
+                    # Ensure frame size matches video writer settings
+                    if plotted_img.shape[1] != self._frame_size[0] or plotted_img.shape[0] != self._frame_size[1]:
+                        plotted_img = cv2.resize(plotted_img, self._frame_size)
                     vid_writer.write(plotted_img)
         except Exception:
             self.update_text_signal.emit(f"检测线程异常：\n{traceback.format_exc()}")
@@ -215,7 +219,7 @@ class ImageDetectionThread(QThread):
                 filename = os.path.basename(self.image_path)
                 save_dir = increment_path(Path(self.root_path / 'runs' / 'detect') / 'predict', exist_ok=False, mkdir=True)
                 os.makedirs(save_dir, exist_ok=True)
-                save_path = str(Path(str(save_dir) + '/' + str(filename)))
+                save_path = str(Path(save_dir) / filename)
                 cv2.imwrite(save_path, plotted_img)
 
             pred = ''
@@ -308,7 +312,7 @@ class UiMain(QMainWindow, Ui_MainWindow):
         self.OpenButton.setVisible(False)  # 导入图片/视频
         self.OpenButton.clicked.connect(self.loadimage)
 
-        self.EndButton.clicked.connect(self.close)  # 退出程序
+        self.EndButton.clicked.connect(self.on_close_requested)  # 退出程序
 
         self.fname = None  # 文件名
         self.weight_path = 'yolov8n.pt'
@@ -544,7 +548,8 @@ class UiMain(QMainWindow, Ui_MainWindow):
         if self.fname != 0:
             self.ReButton.setVisible(True)
 
-    def close(self):
+    def on_close_requested(self):
+        """处理用户请求退出程序的逻辑，避免覆盖 QMainWindow.close()"""
         if self.exit_pending:
             self._attempt_quit_if_ready()
             return
@@ -710,7 +715,7 @@ class UiMain(QMainWindow, Ui_MainWindow):
         
         if self.yaml_comboBox.currentIndex() == 0 and not self.yaml_path:
             QMessageBox.question(self, "提示", "请先创建或选择 YAML 文件。", QMessageBox.Ok)
-            return 0
+            return
         elif self.yaml_comboBox.currentIndex() == 0 and self.yaml_path:
             yaml_path = self.yaml_path
         else:
@@ -772,7 +777,7 @@ class UiMain(QMainWindow, Ui_MainWindow):
     def closeEvent(self, event):
         if not self.exit_pending:
             event.ignore()
-            self.close()
+            self.on_close_requested()
             return
         if self._has_running_threads():
             event.ignore()
